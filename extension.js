@@ -37,20 +37,24 @@ function activate(context) {
     gutterIconSize: 'contain',
   }
 
-  vscode.window.onDidChangeActiveTextEditor(
-    editor => updateDecorations(editor),
-    null,
-    context.subscriptions,
+  const diagnosticCollection = vscode.languages.createDiagnosticCollection(
+    'Gremlins',
   )
 
-  vscode.window.onDidChangeTextEditorSelection(
-    event => updateDecorations(event.textEditor),
+  vscode.workspace.onDidOpenTextDocument(
+    event => {
+      console.log('openDocument')
+      updateDecorations(vscode.window.activeTextEditor)
+    },
     null,
     context.subscriptions,
   )
 
   vscode.workspace.onDidChangeTextDocument(
-    event => updateDecorations(vscode.window.activeTextEditor),
+    event => {
+      console.log('changeDocument')
+      updateDecorations(vscode.window.activeTextEditor)
+    },
     null,
     context.subscriptions,
   )
@@ -93,6 +97,8 @@ function activate(context) {
 
     const doc = activeTextEditor.document
 
+    const diagnostics = []
+
     for (const gremlin of gremlins) {
       const decorationOption = []
 
@@ -107,23 +113,30 @@ function activate(context) {
             lineNum,
             match.index + match[0].length,
           )
+          const range = new vscode.Range(startPos, endPos)
+          const message =
+            match[0].length +
+            ' ' +
+            gremlin.message +
+            (match[0].length > 1 ? 's' : '') +
+            ' (unicode U+' +
+            gremlin.char +
+            ') here'
+
           const decoration = {
-            range: new vscode.Range(startPos, endPos),
-            hoverMessage:
-              match[0].length +
-              ' ' +
-              gremlin.message +
-              (match[0].length > 1 ? 's' : '') +
-              ' (unicode U+' +
-              gremlin.char +
-              ') here',
+            range,
+            hoverMessage: message,
           }
           decorationOption.push(decoration)
+
+          diagnostics.push(new vscode.Diagnostic(range, message))
         }
       }
 
-      activeTextEditor.setDecorations(gremlin.decorationType, decorationOption)
+      // activeTextEditor.setDecorations(gremlin.decorationType, decorationOption)
     }
+
+    diagnosticCollection.set(doc.uri, diagnostics)
   }
 
   updateDecorations(vscode.window.activeTextEditor)
